@@ -1,14 +1,7 @@
 #
-import time
+from time import time
 
 
-#
-
-
-#
-
-
-#
 class Uniswap:
     def __init__(
             self,
@@ -35,7 +28,7 @@ class Uniswap:
 
     @staticmethod
     def _deadline():
-        return int(time.time()) + 10 * 60
+        return int(time()) + 10 * 60
 
     def make_trade_input(
             self,
@@ -47,8 +40,12 @@ class Uniswap:
     ):
         sqrtPriceLimitX96 = 0
         price = self.quoter.functions.quoteExactInputSingle(
-                input_token_address, output_token_address, fee, quantity_in_token, sqrtPriceLimitX96
-            ).call()
+                input_token_address,
+                output_token_address,
+                fee,
+                quantity_in_token, 
+                sqrtPriceLimitX96
+        ).call()
         min_tokens_bought = int(
             (1 - slippage)
             * price

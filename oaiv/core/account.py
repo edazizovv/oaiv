@@ -1,61 +1,59 @@
 #
 import json
 
-
 #
 from urllib import parse, request
-
 
 #
 from oaiv.tools.utils import format_provider, format_w3, data_constructor, check_precision
 from oaiv.tools.address import find_address
 
 
-#
 class InteractionFunctionality:
-
     def __init__(self, etherscan_api_key, ethereum_network, infura_project_id):
-
         self.network = ethereum_network
         self.etherscan_api_key = etherscan_api_key
-        self.provider = format_provider(ethereum_network=ethereum_network, infura_project_id=infura_project_id)
+        self.provider = format_provider(
+            ethereum_network=ethereum_network,
+            infura_project_id=infura_project_id
+        )
         self.w3 = format_w3(provider=self.provider)
 
-        self.etherscan = EtherscanInteraction(network=ethereum_network, etherscan_api_key=etherscan_api_key)
+        self.etherscan = EtherscanInteraction(
+            network=ethereum_network,
+            etherscan_api_key=etherscan_api_key
+        )
         self.infura = InfuraInteraction(w3=self.w3)
 
     def balance(self, **kwargs):
-
         return self.etherscan.balance(**kwargs)
 
     def get_transactions(self, **kwargs):
-
         return self.etherscan.get_transactions(**kwargs)
 
     def create_account(self):
-
         return self.infura.create_account()
 
     def make_transaction(self, **kwargs):
-
         return self.infura.make_transaction(**kwargs)
 
 
 class EtherscanInteraction:
-
     def __init__(self, network, etherscan_api_key):
         self.network = network
         self.etherscan_api_key = etherscan_api_key
 
     def request(self, params):
-        if self.network == 'mainnet':
-            url = 'https://api.etherscan.io/api'
-        elif self.network == 'goerli':
-            url = 'https://api-goerli.etherscan.io/api'
-        elif self.network == 'ropsten':
-            url = 'https://api-ropsten.etherscan.io/api'
-        else:
+        network = {
+            'mainnet': 'https://api.etherscan.io/api',
+            'goerli': 'https://api-goerli.etherscan.io/api',
+            'ropsten': 'https://api-ropsten.etherscan.io/api'
+        }
+        try:
+            url = network[self.network]
+        except KeyError:
             raise KeyError("Invalid network name")
+        
         query = parse.urlencode(params)
         url = '{0}?{1}'.format(url, query)
         with request.urlopen(url) as response:
@@ -64,7 +62,6 @@ class EtherscanInteraction:
         return response_data
 
     def balance(self, address, currency, status='latest', contract_address=None):
-
         if status not in ['latest', 'pending']:
             raise KeyError("Invalid status value. Please provide 'latest' or 'pending' status value.")
         if (contract_address is None) and (currency != 'ETH'):
@@ -103,7 +100,6 @@ class EtherscanInteraction:
         return result
 
     def get_transactions(self, account, sort='desc'):
-
         params = {
             'module': 'account',
             'action': 'txlist',
@@ -151,9 +147,7 @@ class Actor:
 
 
 class InfuraInteraction:
-
     def __init__(self, w3):
-
         self.w3 = w3
 
     # TODO: add mnemonic support (see the w3.eth.account docs)
@@ -163,7 +157,6 @@ class InfuraInteraction:
         return actor
 
     def generate_transaction_data(self, sender, receiver, value=None, currency=None, gas=None):
-
         tx = {
             'from': sender.address,
             'to': receiver.address,
@@ -173,7 +166,11 @@ class InfuraInteraction:
             if currency == 'ETH':
                 tx['value'] = self.w3.toWei(value, 'ether')
             else:
-                tx['data'] = data_constructor(receiver_address=receiver.address, amount=value, currency=currency)
+                tx['data'] = data_constructor(
+                    receiver_address=receiver.address,
+                    amount=value,
+                    currency=currency
+                )
 
         # TODO: improve gas calculations with pre-London and post-London versions
         if gas:
@@ -187,9 +184,13 @@ class InfuraInteraction:
         return tx
 
     def make_transaction(self, sender, receiver, value=None, currency=None, gas=None):
-
-        tx = self.generate_transaction_data(sender=sender, receiver=receiver,
-                                            value=value, currency=currency, gas=gas)
+        tx = self.generate_transaction_data(
+            sender=sender,
+            receiver=receiver,
+            value=value,
+            currency=currency,
+            gas=gas
+        )
 
         signed_txn = sender.sign_transaction(tx)
 
