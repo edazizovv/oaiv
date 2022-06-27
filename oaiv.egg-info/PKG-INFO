@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: oaiv
+Version: 0.5.4
+Summary: Blockchain Interaction Library
+Home-page: https://github.com/edazizovv/oaiv
+Maintainer: Edward Azizov
+Maintainer-email: edazizovv@gmail.com
+License: MIT
+Download-URL: https://github.com/edazizovv/oaiv
+Platform: UNKNOWN
+Requires-Python: >=3.10
+
+UNKNOWN
+
