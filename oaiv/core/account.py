@@ -161,14 +161,18 @@ class EtherscanInteraction:
 # TODO: add mnemonic support (see the w3.eth.account docs)
 # TODO: add importing & exporting features
 class Actor:
-    def __init__(self, w3, private_key=None, public_key=None, encryption=None):
+    def __init__(self, w3, private_key=None, address=None, encryption=None):
         self.w3 = w3
         self.private_key = private_key
         if private_key:
             self.account = w3.eth.account.from_key(private_key)
         else:
             self.account = None
-        self.public_key = public_key
+        if address:
+            if w3.isChecksumAddress(address):
+                self._address = address
+            else:
+                self._address = self.w3.toChecksumAddress(address)
         self.encryption = encryption
 
     @property
@@ -180,13 +184,13 @@ class Actor:
         if self.account:
             return self.account.address
         else:
-            return self.w3.toChecksumAddress(self.public_key)
+            return self._address
 
     def sign_transaction(self, tx):
         if self.private_key:
             return self.account.sign_transaction(tx)
         else:
-            raise Exception("You have to provide private_key to use this feature")
+            raise Exception("You have to provide a private_key to use this feature")
 
 
 class InfuraInteraction:
@@ -195,7 +199,7 @@ class InfuraInteraction:
 
     # TODO: add mnemonic support (see the w3.eth.account docs)
     def create_account(self):
-        private_key = self.w3.eth.account.create().key
+        private_key = self.w3.eth.account.create().key.hex()
         actor = Actor(w3=self.w3, private_key=private_key)
         return actor
 
