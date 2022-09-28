@@ -213,6 +213,9 @@ class InfuraInteraction:
             if currency == 'ETH':
                 tx['value'] = self.w3.toWei(value, 'ether')
             else:
+                token_contract_address = find_address(name=currency)
+                contract = Actor(w3=self.w3, private_key=None, address=token_contract_address)
+                tx['to'] = contract.address
                 tx['data'] = data_constructor(
                     receiver_address=receiver.address,
                     amount=value,
