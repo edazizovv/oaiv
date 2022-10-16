@@ -12,9 +12,10 @@ from oaiv.tools.address import find_address
 
 
 class InteractionFunctionality:
-    def __init__(self, etherscan_api_key, ethereum_network, infura_project_id):
+    def __init__(self, etherscan_api_key, ethplorer_api_key, ethereum_network, infura_project_id):
         self.network = ethereum_network
         self.etherscan_api_key = etherscan_api_key
+        self.ethplorer_api_key = ethplorer_api_key
         self.provider = format_provider(
             ethereum_network=ethereum_network,
             infura_project_id=infura_project_id
@@ -25,10 +26,35 @@ class InteractionFunctionality:
             network=ethereum_network,
             etherscan_api_key=etherscan_api_key
         )
+        self.ethplorer = EthplorerInteraction(
+            ethplorer_api_key=ethplorer_api_key
+        )
         self.infura = InfuraInteraction(w3=self.w3)
 
-    def balance(self, **kwargs):
+    # TODO: should be removed in the next release
+    def __old__balance(self, **kwargs):
         return self.etherscan.balance(**kwargs)
+
+    def balance(self, addresses):
+        addresses = [self.w3.toChecksumAddress(value=address) for address in addresses]
+
+        etherscan_result = self.etherscan.balance(addresses=addresses)
+        ethplorer_result = self.ethplorer.balance(addresses=addresses)
+
+        etherscan_result = {self.w3.toChecksumAddress(value=key): etherscan_result[key]
+                            for key in etherscan_result.keys()}
+        ethplorer_result = {self.w3.toChecksumAddress(value=key): ethplorer_result[key]
+                            for key in ethplorer_result.keys()}
+
+        keys = list(etherscan_result.keys())
+        keys += [x for x in ethplorer_result.keys() if x not in keys]
+
+        result = dict(etherscan_result)
+        for address in ethplorer_result.keys():
+            for currency in ethplorer_result[address].keys():
+                result[address][currency] = ethplorer_result[address][currency]
+
+        return result
 
     def get_transactions(self, **kwargs):
         return self.etherscan.get_transactions(**kwargs)
@@ -38,6 +64,49 @@ class InteractionFunctionality:
 
     def make_transaction(self, **kwargs):
         return self.infura.make_transaction(**kwargs)
+
+
+class EthplorerInteraction:
+    def __init__(self, ethplorer_api_key):
+        self.ethplorer_api_key = ethplorer_api_key
+
+    def request(self, method, params, kwargs):
+        url = 'https://api.ethplorer.io/'
+        if method in ['getAddressInfo']:
+            url += 'getAddressInfo/{address}'
+        else:
+            raise KeyError("Invalid `method` keyword: 'getAddressInfo' is only valid, '{0}' value provided".format(
+                method))
+        params['apiKey'] = self.ethplorer_api_key
+
+        query = parse.urlencode(params)
+        url = '{0}?{1}'.format(url, query)
+        url = url.format(**kwargs)
+        with request.urlopen(url) as response:
+            response_data = json.loads(response.read())
+
+        return response_data
+
+    def balance(self, addresses):
+
+        results = {}
+
+        # """
+        params = {}
+
+        for address in addresses:
+
+            response_data = self.request(method='getAddressInfo', params=params, kwargs={'address': address})
+
+            if 'tokens' in response_data.keys():
+                results[response_data['address']] = {}
+                for i, token in enumerate(response_data['tokens']):
+                    # TODO: fix the Decimal issue
+                    results[response_data['address']][response_data['tokens'][i]['tokenInfo']['symbol']] = int(
+                        response_data['tokens'][i]['balance']) / 10 ** int(
+                        response_data['tokens'][i]['tokenInfo']['decimals'])
+
+        return results
 
 
 class EtherscanInteraction:
@@ -63,7 +132,28 @@ class EtherscanInteraction:
 
         return response_data
 
-    def balance(self, address, currency, status='latest', contract_address=None):
+    def balance(self, addresses):
+
+        results = {}
+
+        params = {
+            'module': 'account',
+            'action': 'balancemulti',
+            'address': ','.join(addresses),
+            'tag': 'latest',
+            'apikey': self.etherscan_api_key,
+        }
+
+        response_data = self.request(params=params)
+
+        # TODO: fix the Decimal issue
+        for i, account in enumerate(addresses):
+            results[account] = {'ETH': int(response_data['result'][i]['balance']) / 10 ** 18}
+
+        return results
+
+    # TODO: remove in the next release
+    def __old__balance(self, address, currency, status='latest', contract_address=None):
         if status not in ['latest', 'pending']:
             raise KeyError("Invalid status value. Please provide 'latest' or 'pending' status value.")
         if (contract_address is None) and (currency != 'ETH'):
@@ -89,7 +179,6 @@ class EtherscanInteraction:
 
         response_data = self.request(params)
 
-        # TODO: fix the Decimal issue
         if response_data['message'] == 'OK':
             if currency == 'ETH':
                 precision = 18
