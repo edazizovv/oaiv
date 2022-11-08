@@ -3,15 +3,178 @@ import json
 import datetime
 
 #
+import pandas
 from web3 import Web3
 from urllib import parse, request
+from cryptos import Bitcoin, random_key
 
 #
 from oaiv.tools.utils import format_provider, format_w3, data_constructor, check_precision
 from oaiv.tools.address import find_address
+from oaiv.constants import BlockchainType
 
 
 class InteractionFunctionality:
+    def __init__(self, bitcoin_kwg, ethereum_kwg):
+        self.bitcoin_interaction = InteractionFunctionalityBitcoin(**bitcoin_kwg)
+        self.ethereum_interaction = InteractionFunctionalityEthereum(**ethereum_kwg)
+
+    def balance(self, addresses, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.balance(addresses=addresses)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.balance(addresses=addresses)
+        else:
+            raise KeyError("Invalid blockchain type provided, "
+                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
+    def get_transactions(self, blockchain, **kwargs):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.get_transactions(**kwargs)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.get_transactions(**kwargs)
+        else:
+            raise KeyError("Invalid blockchain type provided, "
+                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
+    def create_account(self, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.create_account()
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.create_account()
+        else:
+            raise KeyError("Invalid blockchain type provided, "
+                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
+    def make_transaction(self, blockchain, **kwargs):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.make_transaction(**kwargs)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.make_transaction(**kwargs)
+        else:
+            raise KeyError("Invalid blockchain type provided, "
+                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
+
+class InteractionFunctionalityBitcoin:
+    def __init__(self):
+        self.utility = Bitcoin(testnet=False)
+    def balance(self, addresses):
+        result = {}
+        for address in addresses:
+            unspent = self.utility.unspent(address)
+            result[address] = {}
+            result[address]['BTC'] = sum([x['value'] / 100_000_000 for x in unspent])
+        return result
+
+    def get_transactions(self, account, sort='desc'):
+        re = tuple()
+        request_results = self.utility.history(account)
+
+        results = {'tx': [], 'datetime': [], 'sender': [], 'receiver': [], 'value': [], 'commission_paid': [], 'currency': []}
+
+        for tx in request_results['txs']:
+
+            pairs = []
+
+            i, j = 0, 0
+            i_amount, j_amount = tx['inputs'][i]['prev_out']['value'], tx['out'][j]['value']
+            i_amount -= tx['fee']
+            matched = False
+            while not matched:
+                if j_amount == 0:
+                    if 'addr' not in tx['out'][j].keys():
+                        j += 1
+                        j_amount = tx['out'][j]['value']
+                    else:
+                        raise Exception("A strange zero amount transaction occurred")
+                else:
+                    if i_amount < j_amount:
+                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
+                                      'receiver': tx['out'][j]['addr'],
+                                      'amount': i_amount})
+
+                        j_amount -= i_amount
+                        i += 1
+
+                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
+                            matched = True
+                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
+                                raise Exception("Transaction sides do not match")
+                        else:
+                            i_amount = tx['inputs'][i]['prev_out']['value']
+                    elif i_amount > j_amount:
+                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
+                                      'receiver': tx['out'][j]['addr'],
+                                      'amount': j_amount})
+
+                        i_amount -= j_amount
+                        j += 1
+                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
+                            matched = True
+                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
+                                raise Exception("Transaction sides do not match")
+                        else:
+                            j_amount = tx['out'][j]['value']
+                    else:
+                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
+                                      'receiver': tx['out'][j]['addr'],
+                                      'amount': i_amount})
+
+                        i += 1
+                        j += 1
+                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
+                            matched = True
+                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
+                                raise Exception("Transaction sides do not match")
+                        else:
+                            i_amount = tx['inputs'][i]['prev_out']['value']
+                            j_amount = tx['out'][j]['value']
+
+            for pair in pairs:
+                results['tx'].append(tx['hash'])
+                results['datetime'].append(datetime.datetime.fromtimestamp(tx['time']))
+                results['sender'].append(pair['sender'])
+                results['receiver'].append(pair['receiver'])
+                results['value'].append(pair['amount'])
+                results['commission_paid'].append(tx['fee'])
+                results['currency'].append('BTC')
+
+        if sort == 'desc':
+            for key in results.keys():
+                results[key].reverse()
+        results = pandas.DataFrame(results)
+        results = results.groupby(by=[
+            'tx', 'datetime', 'sender', 'receiver', 'commission_paid', 'currency'])[['value']].sum()
+        results = results.reset_index()
+        results = results.to_dict()
+        re = (results,)
+        return re
+
+    def create_account(self):
+        private_key = random_key()
+        actor = ActorBitcoin(private_key=private_key)
+        return actor
+
+    def make_transaction(self, sender, receiver, value=None, gas=None):
+
+        value = int(value * 100_000_000)
+
+        if gas:
+            result = self.utility.send(privkey=sender.private_key, to=receiver.address, value=value, fee=gas)
+        else:
+            result = self.utility.send(privkey=sender.private_key, to=receiver.address, value=value)
+
+        tx_id = result['data']['txid']
+
+        return tx_id
+
+
+class InteractionFunctionalityEthereum:
     def __init__(self, etherscan_api_key, ethplorer_api_key, ethereum_network, infura_project_id):
         self.network = ethereum_network
         self.etherscan_api_key = etherscan_api_key
@@ -30,10 +193,6 @@ class InteractionFunctionality:
             ethplorer_api_key=ethplorer_api_key
         )
         self.infura = InfuraInteraction(w3=self.w3)
-
-    # TODO: should be removed in the next release
-    def __old__balance(self, **kwargs):
-        return self.etherscan.balance(**kwargs)
 
     def balance(self, addresses):
         addresses = [self.w3.toChecksumAddress(value=address) for address in addresses]
@@ -152,44 +311,6 @@ class EtherscanInteraction:
 
         return results
 
-    # TODO: remove in the next release
-    def __old__balance(self, address, currency, status='latest', contract_address=None):
-        if status not in ['latest', 'pending']:
-            raise KeyError("Invalid status value. Please provide 'latest' or 'pending' status value.")
-        if (contract_address is None) and (currency != 'ETH'):
-            contract_address = find_address(name=currency)
-
-        if currency == 'ETH':
-            params = {
-                'module': 'account',
-                'action': 'balance',
-                'address': address,
-                'tag': status,
-                'apikey': self.etherscan_api_key,
-            }
-        else:
-            params = {
-                'module': 'account',
-                'action': 'tokenbalance',
-                'contractaddress': contract_address,
-                'address': address,
-                'tag': status,
-                'apikey': self.etherscan_api_key,
-            }
-
-        response_data = self.request(params)
-
-        if response_data['message'] == 'OK':
-            if currency == 'ETH':
-                precision = 18
-            else:
-                precision = check_precision(currency)
-            result = int(response_data['result']) / (10 ** precision)
-        else:
-            raise Exception("{0}".format(response_data))
-
-        return result
-
     def get_transactions(self, account, sort='desc', raw=True):
         re = tuple()
         params = {
@@ -247,9 +368,31 @@ class EtherscanInteraction:
         return re
 
 
+class ActorBitcoin:
+    def __init__(self, private_key=None, address=None, encryption=None):
+        self.b = Bitcoin(testnet=False)
+        self.private_key = private_key
+        if self.private_key:
+            self.address = self.b.privtoaddr(private_key)
+        else:
+            self.address = None
+        if address:
+            if self.b.is_address(address):
+                self.address = address
+            else:
+                self.address = self.b.pubtoaddr(address)
+        self.encryption = encryption
+
+    def sign_transaction(self, tx):
+        if self.private_key:
+            return self.b.signall(tx, self.private_key)
+        else:
+            raise Exception("You have to provide a private_key to use this feature")
+
+
 # TODO: add mnemonic support (see the w3.eth.account docs)
 # TODO: add importing & exporting features
-class Actor:
+class ActorEthereum:
     def __init__(self, w3, private_key=None, address=None, encryption=None):
         self.w3 = w3
         self.private_key = private_key
@@ -289,7 +432,7 @@ class InfuraInteraction:
     # TODO: add mnemonic support (see the w3.eth.account docs)
     def create_account(self):
         private_key = self.w3.eth.account.create().key.hex()
-        actor = Actor(w3=self.w3, private_key=private_key)
+        actor = ActorEthereum(w3=self.w3, private_key=private_key)
         return actor
 
     def generate_transaction_data(self, sender, receiver, value=None, currency=None, gas=None):
@@ -303,7 +446,7 @@ class InfuraInteraction:
                 tx['value'] = self.w3.toWei(value, 'ether')
             else:
                 token_contract_address = find_address(name=currency)
-                contract = Actor(w3=self.w3, private_key=None, address=token_contract_address)
+                contract = ActorEthereum(w3=self.w3, private_key=None, address=token_contract_address)
                 tx['to'] = contract.address
                 tx['data'] = data_constructor(
                     receiver_address=receiver.address,
