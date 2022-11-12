@@ -3,6 +3,7 @@ import json
 import datetime
 
 #
+import numpy
 import pandas
 from web3 import Web3
 from urllib import parse, request
@@ -71,103 +72,63 @@ class InteractionFunctionalityBitcoin:
             result[address]['BTC'] = sum([x['value'] / 100_000_000 for x in unspent])
         return result
 
-    def get_transactions(self, account, sort='desc'):
-        re = tuple()
+    def get_transactions(self, account, sort='desc', raw=True):
+
         request_results = self.utility.history(account)
 
-        results = {'tx': [], 'datetime': [], 'sender': [], 'receiver': [], 'value': [], 'commission_paid': [], 'currency': []}
+        if not raw:
+            results = {'tx': [], 'datetime': [], 'sender': [], 'receiver': [], 'value': [], 'commission_paid': [], 'currency': []}
 
-        for tx in request_results['txs']:
+            for tx in request_results['txs']:
 
-            pairs = []
-
-            i, j = 0, 0
-            i_amount, j_amount = tx['inputs'][i]['prev_out']['value'], tx['out'][j]['value']
-            i_amount -= tx['fee']
-            matched = False
-            while not matched:
-                if j_amount == 0:
-                    if 'addr' not in tx['out'][j].keys():
-                        j += 1
-                        j_amount = tx['out'][j]['value']
+                for j in range(len(tx['out'])):
+                    results['tx'].append(tx['hash'])
+                    results['datetime'].append(datetime.datetime.fromtimestamp(tx['time']))
+                    inputs_addresses = [tx['inputs'][i]['prev_out']['addr'] for i in range(len(tx['inputs']))]
+                    if numpy.unique(inputs_addresses).shape[0] > 1:
+                        results['sender'].append('{{{0}}}'.format(
+                            ';'.join([tx['inputs'][i]['prev_out']['addr'] for i in range(len(tx['inputs']))])))
                     else:
-                        raise Exception("A strange zero amount transaction occurred")
-                else:
-                    if i_amount < j_amount:
-                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
-                                      'receiver': tx['out'][j]['addr'],
-                                      'amount': i_amount})
+                        results['sender'].append(tx['inputs'][0]['prev_out']['addr'])
+                    results['receiver'].append(tx['out'][j]['addr'])
+                    results['value'].append(tx['out'][j]['value'])
+                    results['commission_paid'].append(tx['fee'])
+                    results['currency'].append('BTC')
 
-                        j_amount -= i_amount
-                        i += 1
-
-                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
-                            matched = True
-                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
-                                raise Exception("Transaction sides do not match")
-                        else:
-                            i_amount = tx['inputs'][i]['prev_out']['value']
-                    elif i_amount > j_amount:
-                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
-                                      'receiver': tx['out'][j]['addr'],
-                                      'amount': j_amount})
-
-                        i_amount -= j_amount
-                        j += 1
-                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
-                            matched = True
-                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
-                                raise Exception("Transaction sides do not match")
-                        else:
-                            j_amount = tx['out'][j]['value']
-                    else:
-                        pairs.append({'sender': tx['inputs'][i]['prev_out']['addr'],
-                                      'receiver': tx['out'][j]['addr'],
-                                      'amount': i_amount})
-
-                        i += 1
-                        j += 1
-                        if (i >= len(tx['inputs'])) or (j >= len(tx['out'])):
-                            matched = True
-                            if not ((i >= len(tx['inputs'])) and (j >= len(tx['out']))):
-                                raise Exception("Transaction sides do not match")
-                        else:
-                            i_amount = tx['inputs'][i]['prev_out']['value']
-                            j_amount = tx['out'][j]['value']
-
-            for pair in pairs:
-                results['tx'].append(tx['hash'])
-                results['datetime'].append(datetime.datetime.fromtimestamp(tx['time']))
-                results['sender'].append(pair['sender'])
-                results['receiver'].append(pair['receiver'])
-                results['value'].append(pair['amount'])
-                results['commission_paid'].append(tx['fee'])
-                results['currency'].append('BTC')
-
-        if sort == 'desc':
-            for key in results.keys():
-                results[key].reverse()
-        results = pandas.DataFrame(results)
-        results = results.groupby(by=[
-            'tx', 'datetime', 'sender', 'receiver', 'commission_paid', 'currency'])[['value']].sum()
-        results = results.reset_index()
-        results = results.to_dict()
-        re = (results,)
+            results = pandas.DataFrame(results)
+            """
+            results = results.groupby(by=[
+                'tx', 'datetime', 'sender', 'receiver', 'commission_paid', 'currency'])[['value']].sum()
+            results = results.reset_index()
+            """
+            results['value'] = results['value'] / 100_000_000
+            results['commission_paid'] = results['commission_paid'] / 100_000_000
+            results = results.loc[results['sender'] != results['receiver']].copy().reset_index(drop=True)
+            results = results.sort_values(by='datetime', ascending=(sort == 'asc'))
+            results = results.to_dict()
+            re = (results, {})
+        else:
+            re = (request_results, {})
         return re
 
     def create_account(self):
         private_key = random_key()
+        """
         actor = ActorBitcoin(private_key=private_key)
+        """
+        actor = Actor(blockchain=BlockchainType.BITCOIN, private_key=private_key)
         return actor
 
-    def make_transaction(self, sender, receiver, value=None, gas=None):
+    def make_transaction(self, sender, receiver, value=None, gas=None, **kwargs):
 
         value = int(value * 100_000_000)
 
         if gas:
-            result = self.utility.send(privkey=sender.private_key, to=receiver.address, value=value, fee=gas)
+            result = self.utility.send(privkey=sender.private_key, to=receiver.address, addr=sender.address,
+                                       value=value, fee=gas)
         else:
-            result = self.utility.send(privkey=sender.private_key, to=receiver.address, value=value)
+            result = self.utility.send(privkey=sender.private_key, to=receiver.address, addr=sender.address,
+                                       value=value)
 
         tx_id = result['data']['txid']
 
@@ -368,20 +329,70 @@ class EtherscanInteraction:
         return re
 
 
+class Actor:
+    def __init__(self, blockchain, **kwargs):
+        self.blockchain = blockchain
+        if self.blockchain == BlockchainType.ETHEREUM:
+            self._actor = ActorEthereum(**kwargs)
+        elif self.blockchain == BlockchainType.BITCOIN:
+            self._actor = ActorBitcoin(**kwargs)
+        else:
+            raise KeyError("Invalid blockchain type {0} is entered; please, check available ones".format(blockchain))
+    """
+    def __getattr__(self, item):
+        if item == 'blockchain':
+            return self.blockchain
+        else:
+            return self._actor.__getattribute__(item)
+    """
+    # https://stackoverflow.com/questions/3278077/difference-between-getattr-and-getattribute
+    def __getattribute__(self, item):
+        if item == 'blockchain':
+            return super().__getattribute__(item)
+        else:
+            return super().__getattribute__('_actor').__getattribute__(item)
+
+
+# TODO: change the behavior so that the address is not autogenerated with the private key;
+#  put the current autogeneration to a separate method like 'get_address'
 class ActorBitcoin:
-    def __init__(self, private_key=None, address=None, encryption=None):
+    def __init__(self, private_key=None, address=None, encryption=None, address_type='p2pkh', **kwargs):
         self.b = Bitcoin(testnet=False)
         self.private_key = private_key
-        if self.private_key:
-            self.address = self.b.privtoaddr(private_key)
-        else:
-            self.address = None
+
         if address:
             if self.b.is_address(address):
-                self.address = address
+                self._address = address
             else:
-                self.address = self.b.pubtoaddr(address)
+                raise ValueError("Invalid address {0} provided; should be a valid Bitcoin address".format(address))
+        else:
+            if private_key:
+                if address_type == 'p2pkh':
+                    self._address = self.b.privtoaddr(self.private_key)
+                elif address_type == 'p2sh':
+                    self._address = self.b.privtop2w(self.private_key)
+                else:
+                    raise KeyError(
+                        "Invalid address_type value {0} provided; check available address types first".format(
+                            address_type))
+            else:
+                self._address = None
+
         self.encryption = encryption
+
+    @property
+    def address(self):
+        if self._address:
+            return self._address
+        else:
+            raise Exception("Address is not specified")
+
+    @address.setter
+    def address(self, value):
+        if self.b.is_address(value):
+            self._address = value
+        else:
+            raise ValueError("Invalid address {0} provided; should be a valid Bitcoin address".format(value))
 
     def sign_transaction(self, tx):
         if self.private_key:
@@ -393,7 +404,7 @@ class ActorBitcoin:
 # TODO: add mnemonic support (see the w3.eth.account docs)
 # TODO: add importing & exporting features
 class ActorEthereum:
-    def __init__(self, w3, private_key=None, address=None, encryption=None):
+    def __init__(self, w3, private_key=None, address=None, encryption=None, **kwargs):
         self.w3 = w3
         self.private_key = private_key
         if private_key:
@@ -405,6 +416,8 @@ class ActorEthereum:
                 self._address = address
             else:
                 self._address = self.w3.toChecksumAddress(address)
+        else:
+            self._address = None
         self.encryption = encryption
 
     @property
@@ -416,7 +429,20 @@ class ActorEthereum:
         if self.account:
             return self.account.address
         else:
-            return self._address
+            if self._address:
+                return self._address
+            else:
+                raise Exception("Address is not specified")
+
+    @address.setter
+    def address(self, value):
+        if not self.account:
+            if self.w3.isChecksumAddress(value):
+                self._address = value
+            else:
+                self._address = self.w3.toChecksumAddress(value)
+        else:
+            raise Exception("The account already has a private key specified; a corresponding address is auto-defined")
 
     def sign_transaction(self, tx):
         if self.private_key:
@@ -432,7 +458,10 @@ class InfuraInteraction:
     # TODO: add mnemonic support (see the w3.eth.account docs)
     def create_account(self):
         private_key = self.w3.eth.account.create().key.hex()
+        """
         actor = ActorEthereum(w3=self.w3, private_key=private_key)
+        """
+        actor = Actor(blockchain=BlockchainType.ETHEREUM, w3=self.w3, private_key=private_key)
         return actor
 
     def generate_transaction_data(self, sender, receiver, value=None, currency=None, gas=None):
@@ -446,7 +475,11 @@ class InfuraInteraction:
                 tx['value'] = self.w3.toWei(value, 'ether')
             else:
                 token_contract_address = find_address(name=currency)
+                """
                 contract = ActorEthereum(w3=self.w3, private_key=None, address=token_contract_address)
+                """
+                contract = Actor(blockchain=BlockchainType.ETHEREUM,
+                                 w3=self.w3, private_key=None, address=token_contract_address)
                 tx['to'] = contract.address
                 tx['data'] = data_constructor(
                     receiver_address=receiver.address,
@@ -465,7 +498,7 @@ class InfuraInteraction:
 
         return tx
 
-    def make_transaction(self, sender, receiver, value=None, currency=None, gas=None):
+    def make_transaction(self, sender, receiver, value=None, currency=None, gas=None, **kwargs):
         tx = self.generate_transaction_data(
             sender=sender,
             receiver=receiver,
