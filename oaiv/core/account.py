@@ -8,6 +8,7 @@ import pandas
 from web3 import Web3
 from urllib import parse, request
 from cryptos import Bitcoin, random_key
+from eth_account.messages import encode_defunct
 
 #
 from oaiv.tools.utils import format_provider, format_w3, data_constructor, check_precision
@@ -20,14 +21,34 @@ class InteractionFunctionality:
         self.bitcoin_interaction = InteractionFunctionalityBitcoin(**bitcoin_kwg)
         self.ethereum_interaction = InteractionFunctionalityEthereum(**ethereum_kwg)
 
+    def is_address(self, address, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.is_address(address=address)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.is_address(address=address)
+        else:
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
+    def is_key_pair(self, blockchain, private_key, address):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.is_key_pair(private_key=private_key, address=address)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.is_key_pair(private_key=private_key, address=address)
+        else:
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
     def balance(self, addresses, blockchain):
         if blockchain == BlockchainType.ETHEREUM:
             return self.ethereum_interaction.balance(addresses=addresses)
         elif blockchain == BlockchainType.BITCOIN:
             return self.bitcoin_interaction.balance(addresses=addresses)
         else:
-            raise KeyError("Invalid blockchain type provided, "
-                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
                 blockchain))
 
     def get_transactions(self, blockchain, **kwargs):
@@ -36,8 +57,8 @@ class InteractionFunctionality:
         elif blockchain == BlockchainType.BITCOIN:
             return self.bitcoin_interaction.get_transactions(**kwargs)
         else:
-            raise KeyError("Invalid blockchain type provided, "
-                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
                 blockchain))
 
     def create_account(self, blockchain):
@@ -46,8 +67,8 @@ class InteractionFunctionality:
         elif blockchain == BlockchainType.BITCOIN:
             return self.bitcoin_interaction.create_account()
         else:
-            raise KeyError("Invalid blockchain type provided, "
-                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
                 blockchain))
 
     def make_transaction(self, blockchain, **kwargs):
@@ -56,14 +77,35 @@ class InteractionFunctionality:
         elif blockchain == BlockchainType.BITCOIN:
             return self.bitcoin_interaction.make_transaction(**kwargs)
         else:
-            raise KeyError("Invalid blockchain type provided, "
-                           "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
                 blockchain))
 
 
 class InteractionFunctionalityBitcoin:
     def __init__(self):
         self.utility = Bitcoin(testnet=False)
+
+    def is_address(self, address):
+        if isinstance(address, str):
+            if len(address) > 0:
+                return self.utility.is_address(addr=address)
+            else:
+                return False
+        else:
+            return False
+
+    def is_key_pair(self, private_key, address):
+        # TODO: this should be reworked to a correct message signing-recovering procedure
+        #  (after the base btc package switch)
+        try:
+            result = any([address == self.utility.privtoaddr(privkey=private_key),
+                          self.utility.is_segwit(priv=private_key, addr=address)])
+            return result
+        except Exception as e:
+            print(e)
+            return False
+
     def balance(self, addresses):
         result = {}
         for address in addresses:
@@ -154,6 +196,20 @@ class InteractionFunctionalityEthereum:
             ethplorer_api_key=ethplorer_api_key
         )
         self.infura = InfuraInteraction(w3=self.w3)
+
+    def is_address(self, address):
+        return self.w3.isAddress(value=address)
+
+    def is_key_pair(self, private_key, address):
+        try:
+            message = encode_defunct(text='In memoriam of Ivanov O.A.')
+            txx = self.w3.eth.account.sign_message(message, private_key=private_key)
+            recovered = self.w3.eth.account.recover_message(message, signature=txx.signature)
+            result = recovered == address
+            return result
+        except Exception as e:
+            print(e)
+            return False
 
     def balance(self, addresses):
         addresses = [self.w3.toChecksumAddress(value=address) for address in addresses]
@@ -357,46 +413,48 @@ class Actor:
 #  put the current autogeneration to a separate method like 'get_address'
 class ActorBitcoin:
     def __init__(self, private_key=None, address=None, encryption=None, address_type='p2pkh', **kwargs):
-        self.b = Bitcoin(testnet=False)
+        self._b = Bitcoin(testnet=False)
         self.private_key = private_key
 
+        if private_key:
+            if address_type == 'p2pkh':
+                self._address = self._b.privtoaddr(self.private_key)
+            elif address_type == 'p2sh':
+                self._address = self._b.privtop2w(self.private_key)
+            else:
+                raise ValueError(
+                    "Invalid address_type value {0} provided; check available address types first".format(
+                        address_type))
+        else:
+            self._address = None
+
         if address:
-            if self.b.is_address(address):
-                self._address = address
+            if self._b.is_address(address):
+                if self._address:
+                    if self._address != address:
+                        raise ValueError(
+                            "Invalid address {0} or private key ***** provided; both should match each other".format(address))
+                else:
+                    self._address = address
             else:
                 raise ValueError("Invalid address {0} provided; should be a valid Bitcoin address".format(address))
-        else:
-            if private_key:
-                if address_type == 'p2pkh':
-                    self._address = self.b.privtoaddr(self.private_key)
-                elif address_type == 'p2sh':
-                    self._address = self.b.privtop2w(self.private_key)
-                else:
-                    raise KeyError(
-                        "Invalid address_type value {0} provided; check available address types first".format(
-                            address_type))
-            else:
-                self._address = None
 
         self.encryption = encryption
 
     @property
     def address(self):
-        if self._address:
-            return self._address
-        else:
-            raise Exception("Address is not specified")
+        return self._address
 
     @address.setter
     def address(self, value):
-        if self.b.is_address(value):
+        if self._b.is_address(value):
             self._address = value
         else:
             raise ValueError("Invalid address {0} provided; should be a valid Bitcoin address".format(value))
 
     def sign_transaction(self, tx):
         if self.private_key:
-            return self.b.signall(tx, self.private_key)
+            return self._b.signall(tx, self.private_key)
         else:
             raise Exception("You have to provide a private_key to use this feature")
 
@@ -405,48 +463,44 @@ class ActorBitcoin:
 # TODO: add importing & exporting features
 class ActorEthereum:
     def __init__(self, w3, private_key=None, address=None, encryption=None, **kwargs):
-        self.w3 = w3
+        self._w3 = w3
         self.private_key = private_key
         if private_key:
-            self.account = w3.eth.account.from_key(private_key)
+            self._account = w3.eth.account.from_key(private_key)
+            self._address = self._account.address
         else:
-            self.account = None
-        if address:
-            if w3.isChecksumAddress(address):
-                self._address = address
-            else:
-                self._address = self.w3.toChecksumAddress(address)
-        else:
+            self._account = None
             self._address = None
+        if address:
+            if not w3.isChecksumAddress(address):
+                address = self._w3.toChecksumAddress(address)
+            if self._address:
+                if self._address != address:
+                    raise ValueError(
+                        "Invalid address {0} or private key ***** provided; both should match each other".format(address))
+            else:
+                self._address = address
+
         self.encryption = encryption
 
     @property
     def nonce(self):
-        return self.w3.eth.get_transaction_count(self.address)
+        return self._w3.eth.get_transaction_count(self.address)
 
     @property
     def address(self):
-        if self.account:
-            return self.account.address
-        else:
-            if self._address:
-                return self._address
-            else:
-                raise Exception("Address is not specified")
+        return self._address
 
     @address.setter
     def address(self, value):
-        if not self.account:
-            if self.w3.isChecksumAddress(value):
-                self._address = value
-            else:
-                self._address = self.w3.toChecksumAddress(value)
+        if self._w3.isChecksumAddress(value):
+            self._address = value
         else:
-            raise Exception("The account already has a private key specified; a corresponding address is auto-defined")
+            self._address = self._w3.toChecksumAddress(value)
 
     def sign_transaction(self, tx):
         if self.private_key:
-            return self.account.sign_transaction(tx)
+            return self._account.sign_transaction(tx)
         else:
             raise Exception("You have to provide a private_key to use this feature")
 
