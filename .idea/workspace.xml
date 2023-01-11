@@ -36,7 +36,7 @@
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Edward/OneDrive/RAMP/IP-02/OSTRTA/oaiv&quot;
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Edward/OneDrive/RAMP/IP-02/OSTRTA/oaiv_btc&quot;
   }
 }</component>
   <component name="RunManager" selected="Python.account">
@@ -99,5 +99,16 @@
       <updated>1664388132032</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>
