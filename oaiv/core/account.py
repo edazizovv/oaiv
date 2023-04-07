@@ -38,6 +38,16 @@ class InteractionFunctionality:
                              "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
                 blockchain))
 
+    def is_supported(self, address, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.is_supported(address=address)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.is_supported(address=address)
+        else:
+            raise ValueError("Invalid blockchain type provided, "
+                             "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided".format(
+                blockchain))
+
     def is_key_pair(self, blockchain, private_key, address):
         if blockchain == BlockchainType.ETHEREUM:
             return self.ethereum_interaction.is_key_pair(private_key=private_key, address=address)
@@ -95,6 +105,19 @@ class InteractionFunctionalityBitcoin:
         self.service = Service(network=self.network, providers=None, cache_uri=None)
 
     def is_address(self, address):
+        if isinstance(address, str):
+            if len(address) > 0:
+                try:
+                    _ = Address.parse(address)
+                    return True
+                except EncodingError as e:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    def is_supported(self, address):
         if isinstance(address, str):
             if len(address) > 0:
                 try:
@@ -396,6 +419,9 @@ class InteractionFunctionalityEthereum:
         self.infura = InfuraInteraction(w3=self.w3)
 
     def is_address(self, address):
+        return self.w3.isAddress(value=address)
+
+    def is_supported(self, address):
         return self.w3.isAddress(value=address)
 
     def is_key_pair(self, private_key, address):
