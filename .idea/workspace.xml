@@ -6,7 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="4f6a6c28-087e-462c-b95c-b64d2d1c01b4" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oaiv/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/oaiv/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/oaiv/core/account.py" beforeDir="false" afterPath="$PROJECT_DIR$/oaiv/core/account.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oaiv/modules/swap.py" beforeDir="false" afterPath="$PROJECT_DIR$/oaiv/modules/swap.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oaiv/tools/address.py" beforeDir="false" afterPath="$PROJECT_DIR$/oaiv/tools/address.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oaiv/tools/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/oaiv/tools/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -32,13 +36,13 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "C:/Users/Edward/OneDrive/RAMP/IP-02/OSTRTA/bc_test"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/TET/deithwen_spread&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Python.account">
     <configuration name="account" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="oaiv" />

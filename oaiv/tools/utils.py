@@ -1,5 +1,5 @@
 #
-import json
+from decimal import Decimal
 
 
 #
@@ -8,23 +8,15 @@ from web3.middleware import geth_poa_middleware
 
 
 #
+from oaiv.constants import get_precision_eth
 
 
 #
-def check_precision(currency):
-    if currency == 'USDC':
-        precision = 6
-    else:
-        raise KeyError("Unknown contract name")
-
-    return precision
-
-
-def data_constructor(receiver_address, amount, currency):
+def data_constructor(w3, receiver_address, amount, currency):
     method = '0xa9059cbb'
     receiver = "0" * (64 - len(receiver_address[2:])) + receiver_address[2:]
-    amount_precision = check_precision(currency=currency)
-    amount = hex(int(amount * (10 ** amount_precision)))[2:]
+    amount_precision = get_precision_eth(w3=w3, token_name=currency)
+    amount = hex(int(Decimal(amount) * (Decimal(10) ** Decimal(amount_precision))))[2:]
     amount = "0" * (64 - len(amount)) + amount
     data = method + receiver + amount
 

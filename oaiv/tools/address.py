@@ -1,5 +1,14 @@
 #
 
+
+#
+
+
+#
+from oaiv.constants import token_info_eth
+
+
+#
 def load_contract(name, w3):
     address = find_address(name=name)
 
@@ -16,12 +25,12 @@ def load_contract(name, w3):
 
 
 def find_address(name):
-    contract_address = {
+    tech_address = {
         'QUOTER': '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
         'ROUTER': '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-        'ETH': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-        'USDC': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
     }
+    token_address = {key: token_info_eth[key]['contract'] for key in token_info_eth.keys()}
+    contract_address = {**tech_address, **token_address}
     try:
         result = contract_address[name]
     except KeyError:

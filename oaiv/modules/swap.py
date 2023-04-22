@@ -3,6 +3,7 @@ from time import time
 
 
 class Uniswap:
+    # TODO: check for Decimal issue applicability
     def __init__(
             self,
             address,

@@ -12,7 +12,7 @@ metadata = {'name': 'oaiv',
             'download_url': 'https://github.com/edazizovv/oaiv',
             'packages': setuptools.find_packages(),
             'include_package_data': True,
-            'version': '0.11.8',
+            'version': '0.12.0',
             'long_description': '',
             'python_requires': '>=3.10',
             'install_requires': []}
