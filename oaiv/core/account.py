@@ -4,6 +4,7 @@ import json
 import datetime
 from decimal import Decimal
 
+
 #
 import pandas
 from web3 import Web3
@@ -37,6 +38,22 @@ class InteractionFunctionality:
             return self.ethereum_interaction.is_address(address=address)
         elif blockchain == BlockchainType.BITCOIN:
             return self.bitcoin_interaction.is_address(address=address)
+        else:
+            self._invalid_blockchain_handler(blockchain)
+
+    def is_formatted_address(self, address, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.is_formatted_address(address=address)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.is_formatted_address(address=address)
+        else:
+            self._invalid_blockchain_handler(blockchain)
+
+    def format_address(self, address, blockchain):
+        if blockchain == BlockchainType.ETHEREUM:
+            return self.ethereum_interaction.format_address(address=address)
+        elif blockchain == BlockchainType.BITCOIN:
+            return self.bitcoin_interaction.format_address(address=address)
         else:
             self._invalid_blockchain_handler(blockchain)
 
@@ -106,6 +123,12 @@ class InteractionFunctionalityBitcoin:
                 return False
         else:
             return False
+
+    def is_formatted_address(self, address):
+        return self.is_address(address=address)
+
+    def format_address(self, address):
+        return address
 
     def is_supported(self, address):
         if isinstance(address, str):
@@ -274,6 +297,12 @@ class InteractionFunctionalityEthereum:
 
     def is_address(self, address):
         return self.w3.isAddress(value=address)
+
+    def is_formatted_address(self, address):
+        return self.w3.isChecksumAddress(value=address)
+
+    def format_address(self, address):
+        return self.w3.toChecksumAddress(value=address)
 
     def is_supported(self, address):
         return self.w3.isAddress(value=address)
