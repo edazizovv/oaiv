@@ -1,0 +1,4 @@
+pandas~=2.1.2
+web3~=6.11.2
+bitcoinlib~=0.6.12
+git+https://github.com/edazizovv/oaiv_btc.git@latest-release

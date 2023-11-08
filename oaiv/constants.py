@@ -1,15 +1,10 @@
-#
+# -*- coding: utf-8 -*-
+"""Constants."""
+
 import json
 from enum import Enum, auto
 
 
-#
-
-
-#
-
-
-#
 class BlockchainName:
     ETHEREUM = 'ETHEREUM'
     BITCOIN = 'BITCOIN'
@@ -21,21 +16,25 @@ class BlockchainType(Enum):
 
 
 def blockchain_type(blockchain_name):
-    available = {BlockchainName.ETHEREUM: BlockchainType.ETHEREUM,
-                 BlockchainName.BITCOIN: BlockchainType.BITCOIN}
+    available = {
+        BlockchainName.ETHEREUM: BlockchainType.ETHEREUM,
+        BlockchainName.BITCOIN: BlockchainType.BITCOIN
+    }
     if blockchain_name in available.keys():
         return available[blockchain_name]
     else:
-        raise KeyError("Invalid blockchain type {0} is entered; please, check available ones".format(blockchain_type))
+        raise KeyError(f"Invalid blockchain type {blockchain_type} is entered; please, check available ones")
 
 
 def blockchain_name(blockchain_type):
-    available = {BlockchainType.ETHEREUM: BlockchainName.ETHEREUM,
-                 BlockchainType.BITCOIN: BlockchainName.BITCOIN}
+    available = {
+        BlockchainType.ETHEREUM: BlockchainName.ETHEREUM,
+        BlockchainType.BITCOIN: BlockchainName.BITCOIN
+    }
     if blockchain_type in available.keys():
         return available[blockchain_type]
     else:
-        raise KeyError("Invalid blockchain name {0} is entered; please, check available ones".format(blockchain_name))
+        raise KeyError(f"Invalid blockchain name {blockchain_name} is entered; please, check available ones")
 
 
 def available_blockchain_types():
@@ -47,8 +46,10 @@ def available_blockchain_names():
 
 
 def blockchain_gas_currency(blockchain_type):
-    available = {BlockchainType.ETHEREUM: 'ETH',
-                 BlockchainType.BITCOIN: 'BTC'}
+    available = {
+        BlockchainType.ETHEREUM: 'ETH',
+        BlockchainType.BITCOIN: 'BTC'
+    }
     if blockchain_type in available.keys():
         return available[blockchain_type]
     else:

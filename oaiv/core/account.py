@@ -1,11 +1,11 @@
-#
+# -*- coding: utf-8 -*-
+"""Account."""
+
 import time
 import json
 import datetime
 from decimal import Decimal
 
-
-#
 import pandas
 from web3 import Web3
 from urllib import parse, request
@@ -16,11 +16,9 @@ from bitcoinlib.services.services import Service
 from bitcoinlib.keys import HDKey, Address, BKeyError
 from oaiv_btc.func import Transactor
 
-
-#
-from oaiv.tools.utils import format_provider, format_w3, data_constructor
-from oaiv.tools.address import find_address
-from oaiv.constants import BlockchainType
+from tools.utils import format_provider, format_w3, data_constructor
+from tools.address import find_address
+from constants import BlockchainType
 
 
 class InteractionFunctionality:
@@ -29,9 +27,7 @@ class InteractionFunctionality:
         self.ethereum_interaction = InteractionFunctionalityEthereum(**ethereum_kwg)
 
     def _invalid_blockchain_handler(self, invalid_value):
-        raise ValueError("Invalid blockchain type provided, "
-                         "should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; "
-                         "you provided {0}".format(invalid_value))
+        raise ValueError(f"Invalid blockchain type provided, should be BlockchainType.ETHEREUM or BlockchainType.BITCOIN; you provided {invalid_value}")
 
     def is_address(self, address, blockchain):
         if blockchain == BlockchainType.ETHEREUM:
@@ -526,8 +522,7 @@ class ActorBitcoin:
                 self.private_key = private_key
                 self._address = address
             else:
-                raise ValueError(
-                    "Invalid address {0} or private key ***** provided; both should match each other".format(address))
+                raise ValueError(f"Invalid address {address} or private key ***** provided; both should match each other")
         elif private_key:
             self.private_key = private_key
             # we support only (compressed; p2pkh; base58) and (compressed; p2wpkh; bech32) addresses
@@ -544,7 +539,7 @@ class ActorBitcoin:
             if self.is_address(address):
                 self._address = address
             else:
-                raise ValueError("Invalid address {0} provided; should be a valid Bitcoin address".format(address))
+                raise ValueError(f"Invalid address {address} provided; should be a valid Bitcoin address")
 
         self.encryption = encryption
 
@@ -610,8 +605,8 @@ class ActorEthereum:
             self._account = None
             self._address = None
         if address:
-            if not w3.isChecksumAddress(address):
-                address = self._w3.toChecksumAddress(address)
+            if not w3.is_checksum_address(address):
+                address = self._w3.to_checksum_address(address)
             if self._address:
                 if self._address != address:
                     raise ValueError(
@@ -632,10 +627,10 @@ class ActorEthereum:
 
     @address.setter
     def address(self, value):
-        if self._w3.isChecksumAddress(value):
+        if self._w3.is_checksum_address(value):
             self._address = value
         else:
-            self._address = self._w3.toChecksumAddress(value)
+            self._address = self._w3.to_checksum_address(value)
 
     def sign_transaction(self, tx):
         if self.private_key:
@@ -663,18 +658,12 @@ class InfuraInteraction:
         if value:
             value = Decimal(value)
             if currency == 'ETH':
-                tx['value'] = self.w3.toWei(value, 'ether')
+                tx['value'] = self.w3.to_wei(value, 'ether')
             else:
                 token_contract_address = find_address(name=currency)
-                contract = Actor(blockchain=BlockchainType.ETHEREUM,
-                                 w3=self.w3, private_key=None, address=token_contract_address)
+                contract = Actor(blockchain=BlockchainType.ETHEREUM, w3=self.w3, private_key=None, address=token_contract_address)
                 tx['to'] = contract.address
-                tx['data'] = data_constructor(
-                    w3=self.w3,
-                    receiver_address=receiver.address,
-                    amount=value,
-                    currency=currency
-                )
+                tx['data'] = data_constructor(w3=self.w3, receiver_address=receiver.address, amount=value, currency=currency)
 
         # TODO: improve gas calculations with pre-London and post-London versions
         if gas:
@@ -683,22 +672,13 @@ class InfuraInteraction:
         else:
             tx['gas'] = self.w3.eth.estimate_gas(tx)
 
-        tx['gasPrice'] = self.w3.eth.gasPrice
+        tx['gasPrice'] = self.w3.eth.gas_price
         tx['nonce'] = sender.nonce
 
         return tx
 
     def make_transaction(self, sender, receiver, value=None, currency=None, gas=None, **kwargs):
-        tx = self.generate_transaction_data(
-            sender=sender,
-            receiver=receiver,
-            value=value,
-            currency=currency,
-            gas=gas
-        )
-
+        tx = self.generate_transaction_data(sender=sender, receiver=receiver, value=value, currency=currency, gas=gas)
         signed_txn = sender.sign_transaction(tx)
-
-        tx_id = self.w3.toHex(self.w3.eth.sendRawTransaction(signed_txn.rawTransaction))
-
+        tx_id = self.w3.toHex(self.w3.eth.send_raw_transaction(signed_txn.rawTransaction))
         return tx_id

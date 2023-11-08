@@ -1,21 +1,12 @@
-#
+# -*- coding: utf-8 -*-
+"""Swaps."""
+
 from time import time
 
 
 class Uniswap:
     # TODO: check for Decimal issue applicability
-    def __init__(
-            self,
-            address,
-            public_key,
-            private_key,
-            provider,
-            web3,
-            router_contract_address,
-            quoter_contract_address,
-            router_contract,
-            quoter_contract,
-    ):
+    def __init__(self, address, public_key, private_key, provider, web3, router_contract_address, quoter_contract_address, router_contract, quoter_contract):
         self.address = address
         self.public_key = public_key
         self.private_key = private_key
@@ -31,39 +22,20 @@ class Uniswap:
     def _deadline():
         return int(time()) + 10 * 60
 
-    def make_trade_input(
-            self,
-            input_token_address,
-            output_token_address,
-            quantity_in_token,
-            fee,
-            slippage
-    ):
+    def make_trade_input(self, input_token_address, output_token_address, quantity_in_token, fee, slippage):
         sqrtPriceLimitX96 = 0
-        price = self.quoter.functions.quoteExactInputSingle(
-                input_token_address,
-                output_token_address,
-                fee,
-                quantity_in_token, 
-                sqrtPriceLimitX96
-        ).call()
-        min_tokens_bought = int(
-            (1 - slippage)
-            * price
-        )
-
-        contract_function = self.router.functions.exactInputSingle(
-                    {
-                        "tokenIn": input_token_address,
-                        "tokenOut": output_token_address,
-                        "fee": fee,
-                        "recipient": self.address,
-                        "deadline": self._deadline(),
-                        "amountIn": quantity_in_token,
-                        "amountOutMinimum": min_tokens_bought,
-                        "sqrtPriceLimitX96": sqrtPriceLimitX96,
-                    },
-                )
+        price = self.quoter.functions.quoteExactInputSingle(input_token_address, output_token_address, fee, quantity_in_token, sqrtPriceLimitX96).call()
+        min_tokens_bought = int((1 - slippage) * price)
+        contract_function = self.router.functions.exactInputSingle({
+            "tokenIn": input_token_address,
+            "tokenOut": output_token_address,
+            "fee": fee,
+            "recipient": self.address,
+            "deadline": self._deadline(),
+            "amountIn": quantity_in_token,
+            "amountOutMinimum": min_tokens_bought,
+            "sqrtPriceLimitX96": sqrtPriceLimitX96,
+        })
 
         tx_params = {
             "from": self.public_key,
