@@ -5,7 +5,7 @@ import json
 
 from web3 import Web3
 
-from constants import token_info_eth
+from oaiv.constants import token_info_eth
 
 
 def load_contract(name: str, w3: Web3):

@@ -16,9 +16,9 @@ from bitcoinlib.services.services import Service
 from bitcoinlib.keys import HDKey, Address, BKeyError
 from oaiv_btc.func import Transactor
 
-from tools.utils import format_provider, format_w3, data_constructor
-from tools.address import find_address
-from constants import BlockchainType
+from oaiv.tools.utils import format_provider, format_w3, data_constructor
+from oaiv.tools.address import find_address
+from oaiv.constants import BlockchainType
 
 
 class InteractionFunctionality:

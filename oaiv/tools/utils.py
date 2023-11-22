@@ -6,7 +6,7 @@ from decimal import Decimal
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
-from constants import get_precision_eth
+from oaiv.constants import get_precision_eth
 
 
 def data_constructor(w3, receiver_address, amount, currency):
