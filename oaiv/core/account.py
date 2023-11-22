@@ -292,16 +292,16 @@ class InteractionFunctionalityEthereum:
         self.infura = InfuraInteraction(w3=self.w3)
 
     def is_address(self, address):
-        return self.w3.isAddress(value=address)
+        return self.w3.is_address(value=address)
 
     def is_formatted_address(self, address):
-        return self.w3.isChecksumAddress(value=address)
+        return self.w3.is_checksum_address(value=address)
 
     def format_address(self, address):
-        return self.w3.toChecksumAddress(value=address)
+        return self.w3.to_checksum_address(value=address)
 
     def is_supported(self, address):
-        return self.w3.isAddress(value=address)
+        return self.w3.is_address(value=address)
 
     def is_key_pair(self, private_key, address):
         try:
@@ -454,9 +454,9 @@ class EtherscanInteraction:
                 results_eth['sender'].append(item['from'])
                 results_eth['receiver'].append(item['to'])
                 # TODO: control source libraries for Decimal
-                results_eth['value'].append(Web3.fromWei(number=Decimal(item['value']), unit='ether'))
-                results_eth['commission_paid'].append(Web3.fromWei(number=(Decimal(item['gasPrice']) *
-                                                                           Decimal(item['gasUsed'])),
+                results_eth['value'].append(Web3.from_wei(number=Decimal(item['value']), unit='ether'))
+                results_eth['commission_paid'].append(Web3.from_wei(number=(Decimal(item['gasPrice']) *
+                                                                            Decimal(item['gasUsed'])),
                                                                    unit='ether'))
                 results_eth['currency'].append('ETH')
             re += (results_eth,)
@@ -485,9 +485,9 @@ class EtherscanInteraction:
                 results_erc20['receiver'].append(item['to'])
                 # TODO: control source libraries for Decimal
                 results_erc20['value'].append(Decimal(item['value']) / (Decimal('10') ** Decimal(item['tokenDecimal'])))
-                results_erc20['commission_paid'].append(Web3.fromWei(number=(Decimal(item['gasPrice']) *
-                                                                             Decimal(item['gasUsed'])),
-                                                                     unit='ether'))
+                results_erc20['commission_paid'].append(Web3.from_wei(number=(Decimal(item['gasPrice']) *
+                                                                              Decimal(item['gasUsed'])),
+                                                                      unit='ether'))
                 results_erc20['currency'].append(item['tokenSymbol'])
             re += (results_erc20,)
         else:
@@ -680,5 +680,5 @@ class InfuraInteraction:
     def make_transaction(self, sender, receiver, value=None, currency=None, gas=None, **kwargs):
         tx = self.generate_transaction_data(sender=sender, receiver=receiver, value=value, currency=currency, gas=gas)
         signed_txn = sender.sign_transaction(tx)
-        tx_id = self.w3.toHex(self.w3.eth.send_raw_transaction(signed_txn.rawTransaction))
+        tx_id = self.w3.to_hex(self.w3.eth.send_raw_transaction(signed_txn.rawTransaction))
         return tx_id
